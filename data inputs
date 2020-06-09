@@ -1,0 +1,75 @@
+#1. Install and load packages
+install.packages("gtrendsR")
+library(gtrendsR)
+
+#2. Read in keywords data
+keywords <- c("Peanut Butter", "Pasta Sauce", "Coffee")
+keywords <- data.frame(keywords)
+keywords <- as.vector(t(keywords))
+
+#3. Pull Google Trends data
+i = 1
+for (i in 1:length(keywords)) {
+  data <-
+    gtrends(keywords[i],
+            time = "today+5-y",
+            gprop = "web",
+            geo = c("CA"))
+  data_interest <- data$interest_over_time
+  assign(paste("interest_", i, sep = ""), rbind.fill(data_interest))
+  data_queries <- data$related_queries
+  assign(paste("queries_", i, sep = ""), rbind.fill(data_queries))
+  data_region <- data$interest_by_region
+  assign(paste("region_", i, sep = ""), rbind.fill(data_region))
+}
+
+
+#4. Collapse all data into one dataframe
+combine <- function(x) {
+  rbind(x)
+}
+
+list_interest <- lapply(mget(ls(pattern = "^interest_*")), combine)
+list_interest <- list_interest[!sapply(list_interest, is.null)]
+df_interest <- rbind.fill(list_interest)
+list_queries <- lapply(mget(ls(pattern = "^queries_*")), combine)
+list_queries <- list_queries[!sapply(list_queries, is.null)]
+df_queries <- rbind.fill(list_queries)
+list_region <- lapply(mget(ls(pattern = "^region_*")), combine)
+list_region <- list_region[!sapply(list_region, is.null)]
+df_region <- rbind.fill(list_region)
+
+rm(list = ls(pattern = "^interest_"))
+rm(data_interest)
+rm(list = ls(pattern = "^queries_"))
+rm(data_queries)
+rm(list = ls(pattern = "^region_"))
+rm(data_region)
+
+#5. Clean the data
+df_interest$hits[is.na(df_interest$hits)] <- 0
+df_region$hits[is.na(df_region$hits)] <- 0
+df_region$location[df_region$location == "QuÃ©bec"] <- "Quebec"
+
+#6. Write to csv
+write.table(
+  df_interest,
+  file = "interest_over_time.csv",
+  sep = ",",
+  row.names = FALSE,
+  quote = FALSE
+)
+write.table(
+  df_queries,
+  file = "related_queries.csv",
+  sep = ",",
+  row.names = FALSE,
+  quote = FALSE
+)
+write.table(
+  df_region,
+  file = "regions.csv",
+  sep = ",",
+  row.names = FALSE,
+  quote = FALSE
+)
